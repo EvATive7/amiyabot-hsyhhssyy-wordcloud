@@ -6,18 +6,20 @@
 
 ![兔兔查询词云例子](https://raw.githubusercontent.com/hsyhhssyy/amiyabot-hsyhhssyy-wordcloud/master/example_image/word_cloud_example.jpg)
 
-> 注意，为了让该插件可以正常工作，需要安装依赖 `wordcloud~=1.8.2.2`，插件内并不自带该依赖（因为太大了）
+> 注意，为了让该插件可以正常工作，需要安装依赖 `wordcloud==1.8.2.2`，插件内并不自带该依赖（因为太大了）
+
+**wordcloud最近更新了1.9的新版本，和本插件不兼容，请使用1.8.2.2版本**
 
 - 代码部署下部署：
 
-    - 请在命令行执行 `pip install wordcloud`
+    - 请在命令行执行 `pip install wordcloud==1.8.2.2`
     - 完成后请重启amiyabot
 
 - 可执行文件部署：
 
     - 注意，使用此方法安装依赖，需要您对windows系统的cmd命令行操作有一定了解，插件仅对该方式提供有限的支持。
     - 想要在可执行文件部署的情况下使用该插件，需要您安装python。
-    - 在cmd命令行执行 `pip install wordcloud` 安装依赖文件，如果只是出现了警告，可以暂时忽略。
+    - 在cmd命令行执行 `pip install wordcloud==1.8.2.2` 安装依赖文件，如果只是出现了警告，可以暂时忽略。
     - 找到site-package目录的路径，方法如下：
         - 在cmd命令行下执行 `python -c 'import site; print(site.getsitepackages())'`
         - 系统会返回多个路径，在返回的路径中找到以site-packages结尾的那个路径，比如 `C:\\Python38\\lib\\site-packages`。复制这个路径（不包含引号）
