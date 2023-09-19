@@ -8,6 +8,7 @@ from amiyabot import AmiyaBot, Message, Chain, log , PluginInstance
 from core.util import read_yaml
 
 curr_dir = os.path.dirname(__file__)
+db_file = f'{curr_dir}/../../resource/word_cloud.db'
 
 def load_by_support():
     try:
@@ -46,6 +47,21 @@ finally:
 
 log.info(f'WordCloud stop words loaded total {len(stop_words)} words')
 
+def get_db_connection_whether_exists():
+    if os.path.exists(db_file):
+        return sqlite3.connect(db_file)
+        
+    else:        
+        conn = sqlite3.connect(db_file)
+        c = conn.cursor()
+        c.execute('''CREATE TABLE WORD_CLOUD
+            (WORD           TEXT    NOT NULL,
+            USER_ID         INT     NOT NULL,
+            QUANTITY        INT     NOT NULL,
+            CHANNEL_ID      INT     NOT NULL);''')
+        conn.commit()
+        return conn
+
 async def any_talk(data: Message):
     
     # log.info('AnyTalk Collect Word Cloud')
@@ -54,27 +70,19 @@ async def any_talk(data: Message):
     words = data.text_words
 
     #以Sqlite的形式存到fileStorage下面
-    if os.path.exists(f'{curr_dir}/../../resource/word_cloud.db'):
-        conn = sqlite3.connect(f'{curr_dir}/../../resource/word_cloud.db')
-    else:        
-        conn = sqlite3.connect(f'{curr_dir}/../../resource/word_cloud.db')
-        c = conn.cursor()
-        c.execute('''CREATE TABLE WORD_CLOUD
-            (WORD           TEXT    NOT NULL,
-            USER_ID         INT     NOT NULL,
-            QUANTITY        INT     NOT NULL);''')
-        conn.commit()
+    conn = get_db_connection_whether_exists()
     
     user_id = data.user_id
+    channel_id = data.channel_id
 
     c = conn.cursor()
     for word in words:
         # 获取当前Quantity
-        c.execute("select QUANTITY from WORD_CLOUD where USER_ID = ? and WORD = ?",(user_id,word))
+        c.execute("select QUANTITY from WORD_CLOUD where USER_ID = ? and WORD = ? and CHANNEL_ID = ?",(user_id,word,channel_id))
         if len(c.fetchall()) <=0 :
-            c.execute('INSERT INTO WORD_CLOUD (USER_ID,WORD,QUANTITY) values (?,?,1)' ,(user_id,word))
+            c.execute('INSERT INTO WORD_CLOUD (USER_ID,WORD,QUANTITY,CHANNEL_ID) values (?,?,1,?)' ,(user_id,word,channel_id))
         else:
-            c.execute('UPDATE WORD_CLOUD SET QUANTITY = QUANTITY +1 where USER_ID = ? and WORD = ?' ,(user_id,word))
+            c.execute('UPDATE WORD_CLOUD SET QUANTITY = QUANTITY +1 where USER_ID = ? and WORD = ? and CHANNEL_ID = ?' ,(user_id,word,channel_id))
 
     conn.commit()
 
@@ -85,9 +93,22 @@ class WordCloudPluginInstance(PluginInstance):
         if not os.path.exists(f'{curr_dir}/../../resource/word_cloud'):
             os.makedirs(f'{curr_dir}/../../resource/word_cloud')
 
+        # 1.5无感升级至1.6:
+        # 检查数据库是否存在名为CHANNEL_ID的列，如果没有就添加。
+        conn = get_db_connection_whether_exists()
+        c = conn.cursor()
+        c.execute("PRAGMA table_info('WORD_CLOUD')") 
+        columns = c.fetchall()
+        column_names = [column[1] for column in columns]
+        if not 'CHANNEL_ID' in column_names:
+            c = conn.cursor()
+            c.execute('''ALTER TABLE WORD_CLOUD 
+                         ADD COLUMN CHANNEL_ID INT NOT NULL;''')
+            log.info(f'WordCloud DB updated to 1.6 version')
+
 bot = WordCloudPluginInstance(
     name='词云统计',
-    version='1.5',
+    version='1.6',
     plugin_id='amiyabot-hsyhhssyy-wordcloud',
     plugin_type='',
     description='让兔兔可以统计群用户的词云。1.4版开始对可执行文件部署用户提供支持。',
@@ -98,33 +119,71 @@ bot = WordCloudPluginInstance(
 async def _(data: Message):
     return
 
+def check_wordcloud_availability(data):
+    if not os.path.exists(db_file) :
+        return Chain(data).text('兔兔的词云功能没有开放哦。')
+    
+    if not enabled :
+        return Chain(data).text('兔兔目前还不会绘制词云图片，请管理员安装对应依赖。')
+    
+    return None
+
 @bot.on_message(keywords=['查看词云','查询词云'], level = 5)
 async def check_wordcloud(data: Message):
 
     # log.info('Create Word Cloud')
 
-    if not os.path.exists(f'{curr_dir}/../../resource/word_cloud.db') :
-        return Chain(data).text('兔兔的词云功能没有开放哦。')
-    
-    if not enabled :
-        return Chain(data).text('兔兔目前还不会绘制词云图片，请管理员安装对应依赖。')
+    ava = check_wordcloud_availability(data)
+    if ava is not None : return ava
 
     user_id = data.user_id
 
-    conn = sqlite3.connect(f'{curr_dir}/../../resource/word_cloud.db')
+    conn = sqlite3.connect(db_file)
     c = conn.cursor()
     c.execute(f"select QUANTITY,WORD from WORD_CLOUD where USER_ID = '{user_id}'")
 
     frequencies = {}
     for row in c:
         if f'{row[1]}' not in stop_words:
-            frequencies[row[1]]=row[0]
+            if f'{row[1]}' not in frequencies.keys():
+                frequencies[row[1]]=row[0]
+            else:
+                frequencies[row[1]]+=row[0]
 
     if len(frequencies) <=0 :
-        return Chain(data).text('还没有收集到您的记录，请让我多听一会儿。')
+        return Chain(data).text('兔兔还没有收集到词频噢，请让我多听一会儿。')
 
     # wordcloud = WordCloud(font_path =  "fileStorage/GenJyuuGothic-Normal-2.ttf").generate_from_frequencies(frequencies)    
     wordcloud = WordCloud(font_path =  f'{curr_dir}/resource/msyh.ttf',background_color='white').generate_from_frequencies(frequencies)
     wordcloud.to_file(f'{curr_dir}/../../resource/word_cloud/word_cloud_{data.user_id}.jpg')
 
-    return Chain(data).text('你的词云是：').image(f'{curr_dir}/../../resource/word_cloud/word_cloud_{data.user_id}.jpg')
+    return Chain(data).text('兔兔为你生成了一张词云图：').image(f'{curr_dir}/../../resource/word_cloud/word_cloud_{data.user_id}.jpg')
+
+@bot.on_message(keywords=['查看群词云','查询群词云'], level = 5)
+async def check_channel_wordcloud(data: Message):
+
+    ava = check_wordcloud_availability(data)
+    if ava is not None : return ava
+
+    channel_id = data.channel_id
+
+    conn = sqlite3.connect(db_file)
+    c = conn.cursor()
+    c.execute(f"select QUANTITY,WORD,USER_ID from WORD_CLOUD where CHANNEL_ID = '{channel_id}'")
+
+    frequencies = {}
+    for row in c:
+        if f'{row[1]}' not in stop_words:
+            if f'{row[1]}' not in frequencies.keys():
+                frequencies[row[1]]=row[0]
+            else:
+                frequencies[row[1]]+=row[0]
+
+    if len(frequencies) <=0 :
+        return Chain(data).text('兔兔还没有收集到词频噢，请让我多听一会儿。')
+
+    # wordcloud = WordCloud(font_path =  "fileStorage/GenJyuuGothic-Normal-2.ttf").generate_from_frequencies(frequencies)    
+    wordcloud = WordCloud(font_path =  f'{curr_dir}/resource/msyh.ttf',background_color='white').generate_from_frequencies(frequencies)
+    wordcloud.to_file(f'{curr_dir}/../../resource/word_cloud/word_cloud_channel_{data.channel_id}.jpg')
+
+    return Chain(data).text('兔兔为本群生成了一张词云图：').image(f'{curr_dir}/../../resource/word_cloud/word_cloud_channel_{data.channel_id}.jpg')

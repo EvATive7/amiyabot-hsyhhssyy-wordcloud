@@ -1,10 +1,12 @@
 > 让兔兔可以收集群友的消息并生成词云
 
 - 兔兔在插件安装后，就会自动开始记录群友的聊天文本
-- 发送 `兔兔查看词云` 或者 `兔兔查询词云` 就可以查看自己的词云
+- 发送 `兔兔查看词云` 或者 `兔兔查询词云` 就可以查看自己的词云（你在所有群的词频总计）
+- 发送 `兔兔查看群词云` 或者 `兔兔查询群词云` 就可以查看该群总计词云
 - 例子如下图所示：
 
 ![兔兔查询词云例子](https://raw.githubusercontent.com/hsyhhssyy/amiyabot-hsyhhssyy-wordcloud/master/example_image/word_cloud_example.jpg)
+![兔兔查询群词云例子](https://raw.githubusercontent.com/hsyhhssyy/amiyabot-hsyhhssyy-wordcloud/master/example_image/word_cloud_channel_example.jpg)
 
 > 注意，为了让该插件可以正常工作，需要安装依赖 `wordcloud==1.8.2.2`，插件内并不自带该依赖（因为太大了）
 
@@ -60,3 +62,4 @@
 | 1.3  | 将底色改为白色更清晰一些 |
 | 1.4  | 新增可执行文件部署的相关指引 |
 | 1.5  | 将几个兔兔常用指令加入词云屏蔽词 |
+| 1.6  | 加入群词云统计支持 |
