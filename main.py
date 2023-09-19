@@ -21,6 +21,7 @@ def load_by_support():
         log.info('无法加载wordcloud依赖，如果您是代码部署，请执行pip install wordcloud，如果您是可执行文件部署，请根据插件说明中的内容执行对应操作。')
         enabled = False
 
+enabled = False
 try:
     from wordcloud import WordCloud
     enabled = True
@@ -103,7 +104,7 @@ class WordCloudPluginInstance(PluginInstance):
         if not 'CHANNEL_ID' in column_names:
             c = conn.cursor()
             c.execute('''ALTER TABLE WORD_CLOUD 
-                         ADD COLUMN CHANNEL_ID INT NOT NULL;''')
+                         ADD COLUMN CHANNEL_ID INT NOT NULL DEFAULT 0;''')
             log.info(f'WordCloud DB updated to 1.6 version')
 
 bot = WordCloudPluginInstance(
