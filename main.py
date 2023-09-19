@@ -10,23 +10,19 @@ from core.util import read_yaml
 curr_dir = os.path.dirname(__file__)
 db_file = f'{curr_dir}/../../resource/word_cloud.db'
 
-def load_by_support():
+enabled = False
+
+try:
     try:
         python_support = read_yaml(f'{curr_dir}/../../resource/python_support.yaml')
-        sitePackagePath = python_support.sitePackagePath
-        sys.path.append(sitePackagePath)
-        from wordcloud import WordCloud
-        enabled = True
+        sys.path.append(python_support.sitePackagePath)
     except:
-        log.info('无法加载wordcloud依赖，如果您是代码部署，请执行pip install wordcloud，如果您是可执行文件部署，请根据插件说明中的内容执行对应操作。')
-        enabled = False
-
-enabled = False
-try:
+        pass
     from wordcloud import WordCloud
     enabled = True
 except ModuleNotFoundError:
-    load_by_support()
+    log.info('无法加载wordcloud依赖，如果您是代码部署，请执行pip install wordcloud，如果您是可执行文件部署，请根据插件说明中的内容执行对应操作。')
+    enabled = False
 
 #初始化停用词
 stop_words = []
