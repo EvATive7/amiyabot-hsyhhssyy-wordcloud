@@ -4,8 +4,9 @@ import os
 import re
 import sys
 
-from amiyabot import AmiyaBot, Message, Chain, log , PluginInstance
+from amiyabot import AmiyaBot, Message, Chain, log
 from core.util import read_yaml
+from core import AmiyaBotPluginInstance
 
 curr_dir = os.path.dirname(__file__)
 db_file = f'{curr_dir}/../../resource/word_cloud.db'
@@ -85,7 +86,7 @@ async def any_talk(data: Message):
 
     return False,0
 
-class WordCloudPluginInstance(PluginInstance):
+class WordCloudPluginInstance(AmiyaBotPluginInstance):
     def install(self):
         if not os.path.exists(f'{curr_dir}/../../resource/word_cloud'):
             os.makedirs(f'{curr_dir}/../../resource/word_cloud')
@@ -105,11 +106,14 @@ class WordCloudPluginInstance(PluginInstance):
 
 bot = WordCloudPluginInstance(
     name='词云统计',
-    version='1.6',
+    version='1.7',
     plugin_id='amiyabot-hsyhhssyy-wordcloud',
     plugin_type='',
     description='让兔兔可以统计群用户的词云。1.4版开始对可执行文件部署用户提供支持。',
-    document=f'{curr_dir}/README.md'
+    document=f'{curr_dir}/README.md',
+    instruction=f'{curr_dir}/README_USE.md',
+    global_config_schema=f'{curr_dir}/config_schema.json',
+    global_config_default=f'{curr_dir}/config_default.yaml'
 )
 
 @bot.on_message(verify=any_talk, check_prefix=False)
@@ -130,6 +134,8 @@ async def check_wordcloud(data: Message):
 
     # log.info('Create Word Cloud')
 
+    merge = bool(bot.get_config('personalMerge'))
+
     ava = check_wordcloud_availability(data)
     if ava is not None : return ava
 
@@ -137,7 +143,10 @@ async def check_wordcloud(data: Message):
 
     conn = sqlite3.connect(db_file)
     c = conn.cursor()
-    c.execute(f"select QUANTITY,WORD from WORD_CLOUD where USER_ID = '{user_id}'")
+    channelSQL = ' '
+    if not merge:
+        channelSQL = f" and CHANNEL_ID = '{data.channel_id}'"
+    c.execute(f"select QUANTITY,WORD from WORD_CLOUD where USER_ID = '{user_id}'{channelSQL}")
 
     frequencies = {}
     for row in c:
@@ -154,7 +163,10 @@ async def check_wordcloud(data: Message):
     wordcloud = WordCloud(font_path =  f'{curr_dir}/resource/msyh.ttf',background_color='white').generate_from_frequencies(frequencies)
     wordcloud.to_file(f'{curr_dir}/../../resource/word_cloud/word_cloud_{data.user_id}.jpg')
 
-    return Chain(data).text('兔兔为你生成了一张词云图：').image(f'{curr_dir}/../../resource/word_cloud/word_cloud_{data.user_id}.jpg')
+    channelText = ''
+    if not merge:
+        channelText = '在本群的词频'
+    return Chain(data).text(f'兔兔为你{channelText}生成了一张词云图：').image(f'{curr_dir}/../../resource/word_cloud/word_cloud_{data.user_id}.jpg')
 
 @bot.on_message(keywords=['查看群词云','查询群词云'], level = 5)
 async def check_channel_wordcloud(data: Message):
