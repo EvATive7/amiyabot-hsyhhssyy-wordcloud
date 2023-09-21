@@ -5,6 +5,7 @@
 
 ![兔兔查询词云例子](https://raw.githubusercontent.com/hsyhhssyy/amiyabot-hsyhhssyy-wordcloud/master/example_image/word_cloud_example.jpg)
 ![兔兔查询群词云例子](https://raw.githubusercontent.com/hsyhhssyy/amiyabot-hsyhhssyy-wordcloud/master/example_image/word_cloud_channel_example.jpg)
+![兔兔分析群词频例子](https://raw.githubusercontent.com/hsyhhssyy/amiyabot-hsyhhssyy-wordcloud/master/example_image/word_cloud_analyse.jpg)
 
 > 前往控制台 >> 插件管理 >> 插件配置，管理本插件设置
 
@@ -64,3 +65,4 @@
 | 1.5  | 将几个兔兔常用指令加入词云屏蔽词 |
 | 1.6  | 加入群词云统计支持 |
 | 1.7  | 个人词云合并统计开关 |
+| 1.8  | 支持词频分析 |

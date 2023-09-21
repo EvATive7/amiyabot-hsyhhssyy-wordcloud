@@ -7,6 +7,7 @@ import sys
 from amiyabot import AmiyaBot, Message, Chain, log
 from core.util import read_yaml
 from core import AmiyaBotPluginInstance
+from collections import defaultdict
 
 curr_dir = os.path.dirname(__file__)
 db_file = f'{curr_dir}/../../resource/word_cloud.db'
@@ -106,7 +107,7 @@ class WordCloudPluginInstance(AmiyaBotPluginInstance):
 
 bot = WordCloudPluginInstance(
     name='词云统计',
-    version='1.7',
+    version='1.8',
     plugin_id='amiyabot-hsyhhssyy-wordcloud',
     plugin_type='',
     description='让兔兔可以统计群用户的词云。1.4版开始对可执行文件部署用户提供支持。',
@@ -170,7 +171,6 @@ async def check_wordcloud(data: Message):
 
 @bot.on_message(keywords=['查看群词云','查询群词云'], level = 5)
 async def check_channel_wordcloud(data: Message):
-
     ava = check_wordcloud_availability(data)
     if ava is not None : return ava
 
@@ -196,3 +196,74 @@ async def check_channel_wordcloud(data: Message):
     wordcloud.to_file(f'{curr_dir}/../../resource/word_cloud/word_cloud_channel_{data.channel_id}.jpg')
 
     return Chain(data).text('兔兔为本群生成了一张词云图：').image(f'{curr_dir}/../../resource/word_cloud/word_cloud_channel_{data.channel_id}.jpg')
+
+
+@bot.on_message(keywords=['分析群词频'],level=5)
+async def get_word_rank(data:Message):
+
+    ava = check_wordcloud_availability(data)
+    if ava is not None : return ava
+
+    channel = data.channel_id
+    c = get_db_connection_whether_exists().cursor()
+    c.execute(f"select QUANTITY,WORD,USER_ID from WORD_CLOUD where CHANNEL_ID = '{channel}'")
+
+    result = list(c)
+
+    if len(result) <=0 :
+        return Chain(data).text('兔兔还没有收集到词频噢，请让我多听一会儿。')
+    
+    result = [item for item in result if item[1] not in stop_words] #过滤词汇
+
+    # 一、找出总提及次数排名前三的词汇
+    word_counts = defaultdict(int)
+    for count, word, _ in result:
+        word_counts[word] += count
+
+    # 根据词汇的提及次数进行降序排序
+    sorted_words = sorted(word_counts.items(), key=lambda x: x[1], reverse=True)
+
+    #print("一、总提及次数排名前三的词汇：")
+    top_words = []
+    select_len = min(3,len(sorted_words))
+    
+    for i, (word, count) in enumerate(sorted_words[:select_len], start=1):
+        top_words.append(
+            {
+                'word':word,
+                'count':count,
+                'person_id':0000,
+                'person_count':0
+            }
+        )
+
+    # 二、找出对应词汇提及最多的人ID
+    for word in top_words:
+        rank_person = [item for item in result if item[1] == word['word']]
+        rank_person = sorted(rank_person, key=lambda x: x[0], reverse=True)
+        word['person_id'] = rank_person[0][2]
+        word['person_count'] = rank_person[0][0]
+
+    res = Chain(data=data, at=False)
+    res.text('兔兔发现！').text('\n')
+    index = 0
+    for word in top_words:
+        word_text = word['word']
+        word_count = word['count']
+        word_person_id = word['person_id']
+        word_person_count = word['person_count']
+
+        if (index == 0):
+            order_word = '最'
+        elif (index == 1):
+            order_word = '第二'
+        elif (index == 2):
+            order_word = '第三'
+
+        res.text(f'本群内被提及{order_word}多的词汇是“{word_text}”（{word_count}次），其中提及最多次的人是')
+        res.at(word_person_id)
+        res.text(f'，ta提及了{word_person_count}次；').text('\n')
+
+        index += 1
+
+    return res
