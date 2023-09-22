@@ -315,7 +315,7 @@ async def get_personal_word_rank(data:Message):
         elif (index == 2):
             order_word = '第三'
 
-        res.text(f'你{order_word}喜欢用的词汇是“{text}”，你一共使用了{quantity}次').text('\n')
+        res.text(f'你{order_word}喜欢用的词汇是“{text}”，你一共使用了{quantity}次；').text('\n')
 
         index += 1
         if (index >= max_analyse):
