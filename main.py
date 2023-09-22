@@ -267,3 +267,58 @@ async def get_word_rank(data:Message):
         index += 1
 
     return res
+
+
+@bot.on_message(keywords=['分析词频'],level=5)
+async def get_personal_word_rank(data:Message):
+
+    merge = bool(bot.get_config('personalMerge'))
+
+    ava = check_wordcloud_availability(data)
+    if ava is not None : return ava
+
+    user_id = data.user_id
+
+    conn = sqlite3.connect(db_file)
+    c = conn.cursor()
+    channelSQL = ' '
+    if not merge:
+        channelSQL = f" and CHANNEL_ID = '{data.channel_id}'"
+    c.execute(f"select QUANTITY,WORD from WORD_CLOUD where USER_ID = '{user_id}'{channelSQL}")
+
+    frequencies = {}
+    for row in c:
+        if f'{row[1]}' not in stop_words:
+            if f'{row[1]}' not in frequencies.keys():
+                frequencies[row[1]]=row[0]
+            else:
+                frequencies[row[1]]+=row[0]
+
+    frequencies = sorted(frequencies.items(),key=lambda x: x[1],reverse=True)
+
+    if len(frequencies) <=0 :
+        return Chain(data).text('兔兔还没有收集到词频噢，请让我多听一会儿。')
+
+    max_analyse = min(3,len(frequencies))
+
+    res = Chain(data).text('兔兔发现')
+
+    index = 0
+    for word in frequencies:
+        text = word[0]
+        quantity = word[1]
+
+        if (index == 0):
+            order_word = '最'
+        elif (index == 1):
+            order_word = '第二'
+        elif (index == 2):
+            order_word = '第三'
+
+        res.text(f'你{order_word}喜欢用的词汇是“{text}”，你一共使用了{quantity}次').text('\n')
+
+        index += 1
+        if (index >= max_analyse):
+            break
+
+    return res

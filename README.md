@@ -5,6 +5,7 @@
 
 ![兔兔查询词云例子](https://raw.githubusercontent.com/hsyhhssyy/amiyabot-hsyhhssyy-wordcloud/master/example_image/word_cloud_example.jpg)
 ![兔兔查询群词云例子](https://raw.githubusercontent.com/hsyhhssyy/amiyabot-hsyhhssyy-wordcloud/master/example_image/word_cloud_channel_example.jpg)
+![兔兔分析词频例子](https://raw.githubusercontent.com/hsyhhssyy/amiyabot-hsyhhssyy-wordcloud/master/example_image/word_cloud_analyse_personal.jpg)
 ![兔兔分析群词频例子](https://raw.githubusercontent.com/hsyhhssyy/amiyabot-hsyhhssyy-wordcloud/master/example_image/word_cloud_analyse.jpg)
 
 > 前往控制台 >> 插件管理 >> 插件配置，管理本插件设置
