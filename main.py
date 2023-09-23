@@ -281,6 +281,7 @@ async def get_personal_word_rank(data:Message):
     if ava is not None : return ava
 
     user_id = data.user_id
+    channel_id = data.channel_id
 
     if merge:
         query = (AmiyaBotWordCloudDataBase
