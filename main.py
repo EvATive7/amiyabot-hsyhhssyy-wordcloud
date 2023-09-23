@@ -108,10 +108,10 @@ class WordCloudPluginInstance(AmiyaBotPluginInstance):
 
 bot = WordCloudPluginInstance(
     name='词云统计',
-    version='1.8',
+    version='2.0',
     plugin_id='amiyabot-hsyhhssyy-wordcloud',
     plugin_type='',
-    description='让兔兔可以统计群用户的词云。1.4版开始对可执行文件部署用户提供支持。',
+    description='让兔兔可以统计群用户的词云。',
     document=f'{curr_dir}/README.md',
     instruction=f'{curr_dir}/README_USE.md',
     global_config_schema=f'{curr_dir}/config_schema.json',

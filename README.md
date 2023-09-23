@@ -10,9 +10,12 @@
 - 查询词云例子如下图所示：
 
 ![兔兔查询词云例子](https://raw.githubusercontent.com/hsyhhssyy/amiyabot-hsyhhssyy-wordcloud/master/example_image/word_cloud_example.jpg)
+
 ![兔兔查询群词云例子](https://raw.githubusercontent.com/hsyhhssyy/amiyabot-hsyhhssyy-wordcloud/master/example_image/word_cloud_channel_example.jpg)
-![兔兔分析词频例子](https://raw.githubusercontent.com/hsyhhssyy/amiyabot-hsyhhssyy-wordcloud/master/example_image/word_cloud_analyse_personal.jpg)
-![兔兔分析群词频例子](https://raw.githubusercontent.com/hsyhhssyy/amiyabot-hsyhhssyy-wordcloud/master/example_image/word_cloud_analyse.jpg)
+
+![兔兔分析词频例子](https://raw.githubusercontent.com/hsyhhssyy/amiyabot-hsyhhssyy-wordcloud/master/example_image/word_cloud_analyse_personal.png)
+
+![兔兔分析群词频例子](https://raw.githubusercontent.com/hsyhhssyy/amiyabot-hsyhhssyy-wordcloud/master/example_image/word_cloud_analyse.png)
 
 ## 插件配置
 
@@ -84,4 +87,4 @@
 | 1.3  | 将底色改为白色更清晰一些 |
 | 1.4  | 新增可执行文件部署的相关指引 |
 | 1.5  | 将几个兔兔常用指令加入词云屏蔽词 |
-| 2.0  | 加入群词云统计支持，个人词云合并统计开关，支持词频分析，(感谢@)，数据库迁移 |
+| 2.0  | 加入群词云统计支持，个人词云合并统计开关，支持词频分析，(感谢@EvATive7)，数据库迁移，修改为异步减少卡顿 |
