@@ -1,0 +1,13 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "required": [],
+    "properties": {
+        "personalMerge": {
+            "title": "个人词云合并统计",
+            "description": "当开启本选项时，获取个人词云时数据源为此人在所有群内的词频总和，否则为此人在指令触发群内的词频。",
+            "type": "boolean",
+            "default": true
+        }
+    }
+}
