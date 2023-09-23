@@ -8,6 +8,7 @@ from amiyabot import AmiyaBot, Message, Chain, log
 from core.util import read_yaml
 from core import AmiyaBotPluginInstance
 from collections import defaultdict
+from .database import AmiyaBotWordCloudDataBase
 
 curr_dir = os.path.dirname(__file__)
 db_file = f'{curr_dir}/../../resource/word_cloud.db'
@@ -46,64 +47,64 @@ finally:
 
 log.info(f'WordCloud stop words loaded total {len(stop_words)} words')
 
-def get_db_connection_whether_exists():
-    if os.path.exists(db_file):
-        return sqlite3.connect(db_file)
-        
-    else:        
-        conn = sqlite3.connect(db_file)
-        c = conn.cursor()
-        c.execute('''CREATE TABLE WORD_CLOUD
-            (WORD           TEXT    NOT NULL,
-            USER_ID         INT     NOT NULL,
-            QUANTITY        INT     NOT NULL,
-            CHANNEL_ID      INT     NOT NULL);''')
-        conn.commit()
-        return conn
+async def collect_word_cloud(user_id,channel_id,words):
+    
+    #收集好分词后的群友句子
+    for word in words:
+        entry, created = AmiyaBotWordCloudDataBase.get_or_create(
+            user_id=user_id, 
+            word=word, 
+            channel_id=channel_id,
+            defaults={'quantity': 1}
+        )
+        if not created:
+            entry.quantity += 1
+            entry.save()
+
+
 
 async def any_talk(data: Message):
     
-    # log.info('AnyTalk Collect Word Cloud')
-
-    #收集好分词后的群友句子
-    words = data.text_words
-
-    #以Sqlite的形式存到fileStorage下面
-    conn = get_db_connection_whether_exists()
-    
     user_id = data.user_id
     channel_id = data.channel_id
+    words = data.text_words
 
-    c = conn.cursor()
-    for word in words:
-        # 获取当前Quantity
-        c.execute("select QUANTITY from WORD_CLOUD where USER_ID = ? and WORD = ? and CHANNEL_ID = ?",(user_id,word,channel_id))
-        if len(c.fetchall()) <=0 :
-            c.execute('INSERT INTO WORD_CLOUD (USER_ID,WORD,QUANTITY,CHANNEL_ID) values (?,?,1,?)' ,(user_id,word,channel_id))
-        else:
-            c.execute('UPDATE WORD_CLOUD SET QUANTITY = QUANTITY +1 where USER_ID = ? and WORD = ? and CHANNEL_ID = ?' ,(user_id,word,channel_id))
-
-    conn.commit()
+    # log.info('AnyTalk Collect Word Cloud')
+    asyncio.create_task(collect_word_cloud(user_id,channel_id,words))
 
     return False,0
 
 class WordCloudPluginInstance(AmiyaBotPluginInstance):
     def install(self):
+
+        # 这是图片文件夹
         if not os.path.exists(f'{curr_dir}/../../resource/word_cloud'):
             os.makedirs(f'{curr_dir}/../../resource/word_cloud')
 
-        # 1.5无感升级至1.6:
-        # 检查数据库是否存在名为CHANNEL_ID的列，如果没有就添加。
-        conn = get_db_connection_whether_exists()
-        c = conn.cursor()
-        c.execute("PRAGMA table_info('WORD_CLOUD')") 
-        columns = c.fetchall()
-        column_names = [column[1] for column in columns]
-        if not 'CHANNEL_ID' in column_names:
+        AmiyaBotWordCloudDataBase.create_table(safe=True)
+
+        if os.path.exists(f'{curr_dir}/../../resource/word_cloud.db'):
+            log.info("正在迁移WordCloud数据库，可能需要消耗很长时间，请稍候....")
+            conn = sqlite3.connect(db_file)
             c = conn.cursor()
-            c.execute('''ALTER TABLE WORD_CLOUD 
-                         ADD COLUMN CHANNEL_ID INT NOT NULL DEFAULT 0;''')
-            log.info(f'WordCloud DB updated to 1.6 version')
+            c.execute(f"select USER_ID,QUANTITY,WORD from WORD_CLOUD")
+
+            db = AmiyaBotWordCloudDataBase._meta.database
+            with db.atomic():
+                rows_to_insert = []
+                for row in c:
+                    rows_to_insert.append({'user_id': row[0], 'quantity': row[1], 'word': row[2]})
+                    if len(rows_to_insert) >= 1000:  # batch size, can be adjusted
+                        AmiyaBotWordCloudDataBase.insert_many(rows_to_insert).execute()
+                        rows_to_insert = []
+                if rows_to_insert:
+                    AmiyaBotWordCloudDataBase.insert_many(rows_to_insert).execute()
+
+            c.close()
+            conn.close()
+            os.rename(f'{curr_dir}/../../resource/word_cloud.db', f'{curr_dir}/../../resource/word_cloud.db.bak')
+            log.info("数据库迁移完毕，旧数据库已经备份为/resource/word_cloud.db.bak，您可以在确定运行无误后删除。")
+
 
 bot = WordCloudPluginInstance(
     name='词云统计',
@@ -121,10 +122,7 @@ bot = WordCloudPluginInstance(
 async def _(data: Message):
     return
 
-def check_wordcloud_availability(data):
-    if not os.path.exists(db_file) :
-        return Chain(data).text('兔兔的词云功能没有开放哦。')
-    
+def check_wordcloud_availability(data):    
     if not enabled :
         return Chain(data).text('兔兔目前还不会绘制词云图片，请管理员安装对应依赖。')
     
@@ -141,21 +139,24 @@ async def check_wordcloud(data: Message):
     if ava is not None : return ava
 
     user_id = data.user_id
+    channel_id = data.channel_id
 
-    conn = sqlite3.connect(db_file)
-    c = conn.cursor()
-    channelSQL = ' '
-    if not merge:
-        channelSQL = f" and CHANNEL_ID = '{data.channel_id}'"
-    c.execute(f"select QUANTITY,WORD from WORD_CLOUD where USER_ID = '{user_id}'{channelSQL}")
-
+    if merge:
+        query = (AmiyaBotWordCloudDataBase
+            .select(AmiyaBotWordCloudDataBase.quantity, AmiyaBotWordCloudDataBase.word)
+            .where((AmiyaBotWordCloudDataBase.user_id == user_id)))
+    else:
+        query = (AmiyaBotWordCloudDataBase
+            .select(AmiyaBotWordCloudDataBase.quantity, AmiyaBotWordCloudDataBase.word)
+            .where((AmiyaBotWordCloudDataBase.user_id == user_id) & (AmiyaBotWordCloudDataBase.channel_id == channel_id)))
+        
     frequencies = {}
-    for row in c:
-        if f'{row[1]}' not in stop_words:
-            if f'{row[1]}' not in frequencies.keys():
-                frequencies[row[1]]=row[0]
+    for result in query:
+        if f'{result.word}' not in stop_words:
+            if f'{result.word}' not in frequencies.keys():
+                frequencies[result.word]=result.quantity
             else:
-                frequencies[row[1]]+=row[0]
+                frequencies[result.word]+=result.quantity
 
     if len(frequencies) <=0 :
         return Chain(data).text('兔兔还没有收集到词频噢，请让我多听一会儿。')
@@ -176,17 +177,17 @@ async def check_channel_wordcloud(data: Message):
 
     channel_id = data.channel_id
 
-    conn = sqlite3.connect(db_file)
-    c = conn.cursor()
-    c.execute(f"select QUANTITY,WORD,USER_ID from WORD_CLOUD where CHANNEL_ID = '{channel_id}'")
-
+    query = (AmiyaBotWordCloudDataBase
+            .select(AmiyaBotWordCloudDataBase.quantity, AmiyaBotWordCloudDataBase.word)
+            .where((AmiyaBotWordCloudDataBase.channel_id == channel_id)))
+        
     frequencies = {}
-    for row in c:
-        if f'{row[1]}' not in stop_words:
-            if f'{row[1]}' not in frequencies.keys():
-                frequencies[row[1]]=row[0]
+    for result in query:
+        if f'{result.word}' not in stop_words:
+            if f'{result.word}' not in frequencies.keys():
+                frequencies[result.word]=result.quantity
             else:
-                frequencies[row[1]]+=row[0]
+                frequencies[result.word]+=result.quantity
 
     if len(frequencies) <=0 :
         return Chain(data).text('兔兔还没有收集到词频噢，请让我多听一会儿。')
@@ -204,21 +205,23 @@ async def get_word_rank(data:Message):
     ava = check_wordcloud_availability(data)
     if ava is not None : return ava
 
-    channel = data.channel_id
-    c = get_db_connection_whether_exists().cursor()
-    c.execute(f"select QUANTITY,WORD,USER_ID from WORD_CLOUD where CHANNEL_ID = '{channel}'")
+    channel_id = data.channel_id
 
-    result = list(c)
+    query = (AmiyaBotWordCloudDataBase
+            .select(AmiyaBotWordCloudDataBase.quantity, AmiyaBotWordCloudDataBase.word,AmiyaBotWordCloudDataBase.user_id)
+            .where((AmiyaBotWordCloudDataBase.channel_id == channel_id)))
 
-    if len(result) <=0 :
+    results = list(query)
+
+    if len(results) <=0 :
         return Chain(data).text('兔兔还没有收集到词频噢，请让我多听一会儿。')
     
-    result = [item for item in result if item[1] not in stop_words] #过滤词汇
+    results = [item for item in results if item.word not in stop_words] #过滤词汇
 
     # 一、找出总提及次数排名前三的词汇
     word_counts = defaultdict(int)
-    for count, word, _ in result:
-        word_counts[word] += count
+    for result in results:
+        word_counts[result.word] += result.quantity
 
     # 根据词汇的提及次数进行降序排序
     sorted_words = sorted(word_counts.items(), key=lambda x: x[1], reverse=True)
@@ -239,10 +242,10 @@ async def get_word_rank(data:Message):
 
     # 二、找出对应词汇提及最多的人ID
     for word in top_words:
-        rank_person = [item for item in result if item[1] == word['word']]
-        rank_person = sorted(rank_person, key=lambda x: x[0], reverse=True)
-        word['person_id'] = rank_person[0][2]
-        word['person_count'] = rank_person[0][0]
+        rank_person = [item for item in results if item.word == word['word']]
+        rank_person = sorted(rank_person, key=lambda x: x.quantity, reverse=True)
+        word['person_id'] = rank_person[0].user_id
+        word['person_count'] = rank_person[0].quantity
 
     res = Chain(data=data, at=False)
     res.text('兔兔发现！').text('\n')
@@ -279,20 +282,22 @@ async def get_personal_word_rank(data:Message):
 
     user_id = data.user_id
 
-    conn = sqlite3.connect(db_file)
-    c = conn.cursor()
-    channelSQL = ' '
-    if not merge:
-        channelSQL = f" and CHANNEL_ID = '{data.channel_id}'"
-    c.execute(f"select QUANTITY,WORD from WORD_CLOUD where USER_ID = '{user_id}'{channelSQL}")
-
+    if merge:
+        query = (AmiyaBotWordCloudDataBase
+            .select(AmiyaBotWordCloudDataBase.quantity, AmiyaBotWordCloudDataBase.word)
+            .where((AmiyaBotWordCloudDataBase.user_id == user_id)))
+    else:
+        query = (AmiyaBotWordCloudDataBase
+            .select(AmiyaBotWordCloudDataBase.quantity, AmiyaBotWordCloudDataBase.word)
+            .where((AmiyaBotWordCloudDataBase.user_id == user_id) & (AmiyaBotWordCloudDataBase.channel_id == channel_id)))
+    
     frequencies = {}
-    for row in c:
-        if f'{row[1]}' not in stop_words:
-            if f'{row[1]}' not in frequencies.keys():
-                frequencies[row[1]]=row[0]
+    for result in query:
+        if f'{result.word}' not in stop_words:
+            if f'{result.word}' not in frequencies.keys():
+                frequencies[result.word]=result.quantity
             else:
-                frequencies[row[1]]+=row[0]
+                frequencies[result.word]+=result.quantity
 
     frequencies = sorted(frequencies.items(),key=lambda x: x[1],reverse=True)
 
