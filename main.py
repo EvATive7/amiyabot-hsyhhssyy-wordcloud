@@ -93,7 +93,7 @@ class WordCloudPluginInstance(AmiyaBotPluginInstance):
             with db.atomic():
                 rows_to_insert = []
                 for row in c:
-                    rows_to_insert.append({'user_id': row[0], 'quantity': row[1], 'word': row[2]})
+                    rows_to_insert.append({'user_id': row[0], 'quantity': row[1], 'word': row[2], 'channel_id': '0'})
                     if len(rows_to_insert) >= 1000:  # batch size, can be adjusted
                         AmiyaBotWordCloudDataBase.insert_many(rows_to_insert).execute()
                         rows_to_insert = []
@@ -281,6 +281,7 @@ async def get_personal_word_rank(data:Message):
     if ava is not None : return ava
 
     user_id = data.user_id
+    channel_id = data.channel_id
 
     if merge:
         query = (AmiyaBotWordCloudDataBase
