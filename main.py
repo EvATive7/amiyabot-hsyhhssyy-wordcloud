@@ -199,7 +199,7 @@ async def check_channel_wordcloud(data: Message):
     return Chain(data).text('兔兔为本群生成了一张词云图：').image(f'{curr_dir}/../../resource/word_cloud/word_cloud_channel_{data.channel_id}.jpg')
 
 
-@bot.on_message(keywords=['分析群词频'],level=5)
+@bot.on_message(keywords=['分析群词频','查看群词频','查询群词频'],level=5)
 async def get_word_rank(data:Message):
 
     ava = check_wordcloud_availability(data)
@@ -272,7 +272,7 @@ async def get_word_rank(data:Message):
     return res
 
 
-@bot.on_message(keywords=['分析词频'],level=5)
+@bot.on_message(keywords=['分析词频','查看词频','查询词频'],level=5)
 async def get_personal_word_rank(data:Message):
 
     merge = bool(bot.get_config('personalMerge'))
